@@ -4,12 +4,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .raid_binarization import DEFAULT_DETACHED_GAP, RaidNicknameBinarize
+
 REVISION = "b03f46425e8ff4442b268ce449e3eef758146cd4"
 _dll_handles = []
 
 
 def prepare_runtime(
-    upstream: Path, dictionary: Path, weights: Path, source_dictionary: Path | None = None
+    upstream: Path,
+    dictionary: Path,
+    weights: Path,
+    source_dictionary: Path | None = None,
+    detached_gap: str = DEFAULT_DETACHED_GAP,
 ):
     revision = subprocess.run(
         ["git", "-C", str(upstream), "rev-parse", "HEAD"],
@@ -87,5 +93,8 @@ def prepare_runtime(
         raise ValueError("Model weights could not be loaded completely.")
     transforms = copy.deepcopy(config["Eval"]["dataset"]["transforms"])
     operators = create_operators(transforms, config["Global"])
+    if type(operators[0]).__name__ != "DecodeImage":
+        raise ValueError("The Korean PP-OCRv5 Eval transforms must start with DecodeImage.")
+    operators.insert(1, RaidNicknameBinarize(detached_gap))
     loss = build_loss(copy.deepcopy(config["Loss"]))
     return paddle, np, model, decoder, operators, transform, loss

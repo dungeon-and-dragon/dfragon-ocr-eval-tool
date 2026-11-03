@@ -16,6 +16,11 @@ export function SupplementAppearance({
   onChange: (value: Partial<SupplementOptions>) => void
   onChoosePath: (kind: 'python' | 'output') => void
 }): React.JSX.Element {
+  const numberFields = [
+    ...(options.scaleSampling === 'fixed' ? ['scale'] : []),
+    ...(options.placement === 'center' ? ['width', 'height', 'padding'] : [])
+  ] as ('scale' | 'width' | 'height' | 'padding')[]
+
   return (
     <details className="training-runtime" open>
       <summary>합성 글자와 배경</summary>
@@ -31,6 +36,12 @@ export function SupplementAppearance({
         합성기는 Pillow 12.3 이상을 사용합니다. GPU 학습 Python과 별도 환경을 선택할 수 있으며
         폰트는 이 PC의 파일만 읽습니다.
       </p>
+      <p className="field-help">
+        공대 이름 칸 배치는 배율마다 던삐삐가 자르는 크기로 crop을 만들고 글자를 칸 가운데에
+        놓습니다. 실제 train 높이에서 역산하면 배율 1 이상만 쓰며, calibrated-v1은 배율 1 미만을
+        지원하지 않습니다. 17px 높이는 입력한 비율만큼 정확히 배율 1로 그리고 나머지는 1보다 조금 큰
+        배율에서 고릅니다.
+      </p>
       <div className="supplement-fields">
         <label className="field">
           글꼴 모드
@@ -45,7 +56,46 @@ export function SupplementAppearance({
             <option value="nanum-neo">나눔스퀘어 네오</option>
           </select>
         </label>
-        {(['scale', 'width', 'height', 'padding'] as const).map((key) => (
+        <label className="field">
+          확대 방식
+          <select
+            value={options.scaleModel}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({ scaleModel: event.target.value as SupplementOptions['scaleModel'] })
+            }
+          >
+            <option value="calibrated-v1">게임 측정 커널 (calibrated-v1)</option>
+            <option value="affine-bilinear">bilinear (0.1.2와 같음)</option>
+          </select>
+        </label>
+        <label className="field">
+          배율 분포
+          <select
+            value={options.scaleSampling}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({ scaleSampling: event.target.value as SupplementOptions['scaleSampling'] })
+            }
+          >
+            <option value="train-heights">실제 train 높이에서 역산</option>
+            <option value="fixed">고정 배율</option>
+          </select>
+        </label>
+        <label className="field">
+          글자 배치
+          <select
+            value={options.placement}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange({ placement: event.target.value as SupplementOptions['placement'] })
+            }
+          >
+            <option value="raid-name">공대 이름 칸</option>
+            <option value="center">고정 크롭 가운데</option>
+          </select>
+        </label>
+        {numberFields.map((key) => (
           <label className="field" key={key}>
             {
               {
@@ -65,6 +115,20 @@ export function SupplementAppearance({
             />
           </label>
         ))}
+        {options.scaleSampling === 'train-heights' && (
+          <label className="field">
+            17px 높이에서 배율 1 비율
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={options.exactUnitScaleShare}
+              disabled={disabled}
+              onChange={(event) => onChange({ exactUnitScaleShare: Number(event.target.value) })}
+            />
+          </label>
+        )}
         <label className="field">
           글자 색
           <input
@@ -138,7 +202,8 @@ export function SupplementAppearance({
           />
           <p className="field-help">
             불투명하고 크롭보다 큰 배경을 준비하세요. 닉네임마다 배경과 위치를 선택하며 모든 조합을
-            복제하지 않습니다.
+            복제하지 않습니다. 폴더 안에 s1.00, s1.80 같은 배율별 폴더가 있으면 가장 가까운 배율의
+            폴더에서 고르고, 크롭보다 조금 작은 배경은 크롭 크기로 늘립니다.
           </p>
         </>
       )}

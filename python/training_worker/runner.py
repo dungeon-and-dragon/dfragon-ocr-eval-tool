@@ -6,6 +6,7 @@ from pathlib import Path
 from eval_worker.dataset import read_object
 
 from .dictionary import write_run_dictionary
+from .raid_binarization import DEFAULT_DETACHED_GAP, DETACHED_GAPS
 from .recognition.distance import edit_distance
 from .recognition.metrics import recognition_metrics
 from .runtime import REVISION, prepare_runtime
@@ -28,6 +29,8 @@ def validate_options(value: dict) -> None:
         or not 1e-8 <= learning_rate <= 0.1
     ):
         raise ValueError("Invalid learningRate.")
+    if value.get("nicknameDetachedGap", DEFAULT_DETACHED_GAP) not in DETACHED_GAPS:
+        raise ValueError("Invalid nicknameDetachedGap.")
     for key in ("directory", "runDirectory", "upstreamDirectory"):
         if not isinstance(value.get(key), str) or not Path(value[key]).is_absolute():
             raise ValueError(f"{key} must be an absolute path.")
@@ -62,6 +65,7 @@ def run_training(request: dict, cancelled, emit) -> None:
     if (run / "weights.pdparams").exists():
         raise ValueError("Training output already exists.")
     started = datetime.now(timezone.utc).isoformat()
+    detached_gap = request.get("nicknameDetachedGap", DEFAULT_DETACHED_GAP)
 
     def check_cancel():
         if cancelled():
@@ -107,6 +111,7 @@ def run_training(request: dict, cancelled, emit) -> None:
         run / "characters.txt",
         root / "model/weights.pdparams",
         source_dictionary=root / "model/characters.txt",
+        detached_gap=detached_gap,
     )
     paddle.seed(42)
     rng = np.random.default_rng(42)
@@ -254,7 +259,8 @@ def run_training(request: dict, cancelled, emit) -> None:
                 f"recognition/{name}": digest(scorer_root / name)
                 for name in ("metrics.py", "distance.py")
             },
-            "preprocessing": "official Korean PP-OCRv5 Eval transforms; BGR, resize and padding [3,48,320]",
+            "preprocessing": f"dfragon raid nickname binarization (detached gap {detached_gap} of the height) after DecodeImage, then official Korean PP-OCRv5 Eval transforms; resize and padding [3,48,320]",
+            "nicknameDetachedGap": detached_gap,
             "seed": 42,
             "paddle": paddle.__version__,
             "cuda": paddle.version.cuda(),

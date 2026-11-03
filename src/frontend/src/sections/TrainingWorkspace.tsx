@@ -37,7 +37,8 @@ export function TrainingWorkspace(): React.JSX.Element {
     upstreamDirectory: '',
     epochs: 10,
     batchSize: 8,
-    learningRate: 0.00001
+    learningRate: 0.00001,
+    nicknameDetachedGap: '4/17'
   })
   const active = [
     'downloading',
@@ -301,6 +302,23 @@ export function TrainingWorkspace(): React.JSX.Element {
                   setOptions({ ...options, learningRate: Number(event.target.value) })
                 }
               />
+            </label>
+            <label className="field">
+              닉네임 이진화의 떨어진 픽셀 간격
+              <select
+                value={options.nicknameDetachedGap}
+                disabled={busy}
+                onChange={(event) =>
+                  setOptions({
+                    ...options,
+                    nicknameDetachedGap: event.target
+                      .value as TrainingOptions['nicknameDetachedGap']
+                  })
+                }
+              >
+                <option value="4/17">높이의 4/17 (던삐삐 main)</option>
+                <option value="6/17">높이의 6/17 (던삐삐 #1152)</option>
+              </select>
             </label>
           </div>
           <details className="training-runtime">

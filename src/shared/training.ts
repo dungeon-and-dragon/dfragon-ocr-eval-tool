@@ -26,9 +26,13 @@ export interface LibrarySample {
   split: 'train' | 'val' | 'test' | 'unassigned'
 }
 
+// dfragon main cuts raid name clusters at 4/17 of the height; dfragon #1152 proposes 6/17.
+export const NICKNAME_DETACHED_GAPS = ['4/17', '6/17'] as const
+
 export interface TrainingOptions {
   additionalCharacters?: string
   supplementId?: string
+  nicknameDetachedGap?: (typeof NICKNAME_DETACHED_GAPS)[number]
   pythonExecutable: string
   upstreamDirectory: string
   epochs: number

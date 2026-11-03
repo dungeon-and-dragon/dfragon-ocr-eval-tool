@@ -332,6 +332,10 @@ const supplementOptions = (): SupplementOptions => ({
   width: 160,
   height: 32,
   padding: 0,
+  scaleModel: 'affine-bilinear',
+  scaleSampling: 'fixed',
+  placement: 'center',
+  exactUnitScaleShare: 0.5,
   scale: 1,
   color: [75, 209, 255],
   backgroundMode: 'solid',
@@ -348,7 +352,7 @@ async function finishSupplement(call: number) {
   const image = join(output, 'images/000000.png')
   await writeFile(image, 'fixture composite')
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: request.mode,
     options: request.options,
     plan: {

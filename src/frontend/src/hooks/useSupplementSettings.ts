@@ -47,11 +47,15 @@ export function useSupplementSettings({
       nanum: '',
       uttum: ''
     },
+    scaleModel: 'calibrated-v1',
+    scaleSampling: 'train-heights',
+    placement: 'raid-name',
+    exactUnitScaleShare: 0.5,
     scale: 1,
     width: 160,
     height: 32,
     padding: 0,
-    color: [75, 209, 255],
+    color: [214, 197, 146],
     backgroundMode: 'solid',
     backgroundColor: [24, 28, 32],
     backgroundDirectory: ''
