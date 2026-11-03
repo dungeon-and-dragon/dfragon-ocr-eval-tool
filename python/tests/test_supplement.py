@@ -8,11 +8,20 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 from PIL import Image
+from test_training_snapshot import save_dataset
 from test_training_snapshot import snapshot as snapshot
 
 from training_worker.dictionary import expand_state_arrays, extend_characters, write_run_dictionary
 from training_worker.snapshot import digest, load_snapshot
-from training_worker.supplement import composite, prepare_supplement
+from training_worker.supplement import (
+    Synthesizer,
+    background_files,
+    composite,
+    nearest_backgrounds,
+    prepare_supplement,
+    scale_heights,
+)
+from training_worker.supplement_geometry import place_cell, scale_range
 from training_worker.supplement_plan import GROUPS, character_group, distribution, plan_supplement
 from training_worker.supplement_snapshot import load_supplement
 
@@ -36,6 +45,9 @@ def options(**overrides):
         "seed": 42,
         "profile": "nanum-neo",
         "fonts": dict.fromkeys(("gulim", "batang", "nanum", "uttum"), ""),
+        "scaleModel": "affine-bilinear",
+        "scaleSampling": "fixed",
+        "placement": "center",
         "scale": 1,
         "width": 40,
         "height": 20,
@@ -134,15 +146,51 @@ def test_rgba_is_composited_not_discarded_and_text_cannot_be_cropped(tmp_path):
         composite(Image.new("RGBA", (4, 4)), config, [background], random.Random(0))
 
 
+def raid_crop_geometry(scale, row, heading):
+    # Test double of dnf-ocr-synth name_crop_geometry: both cell edges rounded in frame pixels.
+    x, y = heading
+    top = 21 + 21 * (row - 1)
+    left, upper = round(x + 182 * scale), round(y + top * scale)
+    return SimpleNamespace(
+        x=left,
+        y=upper,
+        width=round(x + 268 * scale) - left,
+        height=round(y + (top + 17) * scale) - upper,
+    )
+
+
 class FakeRenderer:
-    def render(self, text, **_options):
+    def __init__(self):
+        self.calls = []
+
+    def render(self, text, *, scale, **options):
         # This tests alpha composition and input selection, not game font appearance.
+        self.calls.append({"text": text, "scale": scale, **options})
+        size = (len(text) * 4, 5)
         return SimpleNamespace(
-            image=Image.new("RGBA", (len(text) * 4, 5), (255, 255, 0, 128)), metadata={"text": text}
+            image=Image.new("RGBA", (size[0] + 4, size[1] + 4), (255, 255, 0, 128)),
+            metadata={
+                "text": text,
+                "scale": scale,
+                "scale_model": {"name": options["scale_model"]},
+                "padding_px": 2,
+                "native_ink_size": list(size),
+            },
         )
 
 
-@pytest.mark.parametrize("version", ["0.1.1", "0.1.3"])
+def fake_synthesizer(renderer=None):
+    return Synthesizer(
+        renderer or FakeRenderer(),
+        valid,
+        "test-double",
+        raid_crop_geometry,
+        lambda width, rounding: (86 - width + (rounding == "up")) // 2,
+        lambda text, _profile, _model: (0, -4, len(text) * 4),
+    )
+
+
+@pytest.mark.parametrize("version", ["0.1.2", "0.2.1"])
 def test_unsupported_synthesizer_fails_before_constructing_renderer(snapshot, monkeypatch, version):
     root, _ = snapshot
     output = root / "previews/version-check"
@@ -152,7 +200,7 @@ def test_unsupported_synthesizer_fails_before_constructing_renderer(snapshot, mo
     monkeypatch.setitem(sys.modules, "dnf_ocr_synth", module)
     monkeypatch.setattr("importlib.metadata.version", lambda _: version)
 
-    with pytest.raises(ValueError, match="0.1.2"):
+    with pytest.raises(ValueError, match="0.2.0"):
         prepare_supplement(
             {
                 "directory": str(root),
@@ -181,7 +229,7 @@ def test_generate_uses_frozen_real_input_and_one_selected_supplement_only(snapsh
         "mode": "generate",
         "options": config,
     }
-    data = prepare_supplement(request, renderer=FakeRenderer(), validator=valid)
+    data = prepare_supplement(request, synthesizer=fake_synthesizer())
     chars = set("가나다ABCD ")
     rows, _ = load_supplement(root, run, digest(output / "supplement.json"), dataset, chars)
     assert len(rows) == data["plan"]["synthetic"]["images"] > 0
@@ -256,3 +304,143 @@ def test_weight_extension_preserves_all_existing_classes_space_special_tokens_an
     broken = {**initialized, "backbone.weight": np.zeros(8, dtype=np.float32)}
     with pytest.raises(ValueError, match="출력층 밖"):
         expand_state_arrays(state, broken, original, extended)
+
+
+@pytest.mark.parametrize("height", [17, 18, 19, 24, 31])
+def test_train_height_maps_to_scales_whose_name_crop_has_that_height(height):
+    low, high = scale_range(height)
+    rng = random.Random(height)
+    # Both ends are open except s=1 itself: there the crop is always exactly 17px.
+    for step in range(200):
+        scale = low + (high - low) * (step + 0.5) / 200
+        placement = place_cell(raid_crop_geometry, scale, height, rng)
+        assert placement.crop[3] == height
+
+
+def test_scale_range_ends_where_the_height_stops_being_reachable():
+    assert scale_range(19) == (18 / 17, 20 / 17)
+    assert scale_range(17) == (1, 18 / 17)
+    rng = random.Random(0)
+    for scale in (18 / 17 - 0.001, 20 / 17 + 0.001):
+        with pytest.raises(ValueError):
+            place_cell(raid_crop_geometry, scale, 19, rng)
+
+
+def test_heights_that_need_a_scale_below_one_have_no_range():
+    assert scale_range(16) is None
+    assert scale_range(4) is None
+    assert place_cell(raid_crop_geometry, 1, 17, random.Random(0)).crop[2:] == (86, 17)
+    rows = [
+        {"split": "train", "height": 19},
+        {"split": "train", "height": 16},
+        {"split": "train", "height": 16},
+        {"split": "val", "height": 30},
+    ]
+    assert scale_heights(rows) == ([19], {16: 2})
+
+
+def scale_folders(root, folders):
+    for name in folders:
+        (root / name).mkdir()
+        Image.new("RGB", (90, 20), (10, 20, 30)).save(root / name / "band.png")
+
+
+def test_background_comes_from_the_nearest_scale_folder_and_root_files_are_ignored(tmp_path):
+    scale_folders(tmp_path, ["s1.00", "s1.50", "glow"])
+    Image.new("RGB", (90, 20)).save(tmp_path / "root.png")
+    config = options(placement="raid-name", backgroundMode="images")
+    config["backgroundDirectory"] = str(tmp_path)
+    backgrounds = background_files(config)
+    assert set(backgrounds) == {1.0, 1.5}
+    assert nearest_backgrounds(backgrounds, 1.2) == [tmp_path / "s1.00/band.png"]
+    assert nearest_backgrounds(backgrounds, 1.3) == [tmp_path / "s1.50/band.png"]
+    assert nearest_backgrounds(backgrounds, 1.8) == [tmp_path / "s1.50/band.png"]
+
+
+def test_background_folder_without_scale_folders_uses_its_own_files(tmp_path):
+    scale_folders(tmp_path, ["glow"])
+    Image.new("RGB", (90, 20)).save(tmp_path / "root.png")
+    config = options(placement="raid-name", backgroundMode="images")
+    config["backgroundDirectory"] = str(tmp_path)
+    assert nearest_backgrounds(background_files(config), 1.7) == [tmp_path / "root.png"]
+
+
+def with_train_heights(root, dataset, heights):
+    rows = []
+    for row, height in zip(dataset["samples"], heights, strict=True):
+        path = root / row["image"]
+        Image.new("RGB", (90, height), (row["slot"] * 40, 50, 90)).save(path)
+        rows.append({**row, "width": 90, "height": height, "sha256": digest(path)})
+    save_dataset(root, {**dataset, "samples": rows})
+
+
+def test_train_heights_records_scale_model_and_draws_each_crop_at_a_real_train_height(snapshot):
+    root, dataset = snapshot
+    with_train_heights(root, dataset, [19, 24, 30])
+    config = options(
+        scaleModel="calibrated-v1", scaleSampling="train-heights", placement="raid-name"
+    )
+    config["targets"]["latin"] = 75
+    config["characters"]["latin"] = "ABCD"
+    output = root / "previews/heights"
+    output.mkdir(parents=True)
+    renderer = FakeRenderer()
+    data = prepare_supplement(
+        {
+            "directory": str(root),
+            "outputDirectory": str(output),
+            "mode": "preview",
+            "options": config,
+        },
+        synthesizer=fake_synthesizer(renderer),
+    )
+    saved = json.loads((output / "supplement.json").read_text(encoding="utf-8"))
+    assert saved == data
+    assert saved["options"]["scaleSampling"] == "train-heights"
+    assert saved["renderer"]["scaleModel"] == "calibrated-v1"
+    # Only the train row counts; val and test heights must not shape the synthetic scales.
+    assert saved["scaleSampling"] == {
+        "mode": "train-heights",
+        "trainHeights": {"19": 1},
+        "skippedHeights": {},
+    }
+    assert {call["scale_model"] for call in renderer.calls} == {"calibrated-v1"}
+    assert saved["samples"]
+    for sample in saved["samples"]:
+        scale = sample["placement"]["scale"]
+        assert 18 / 17 <= scale < 20 / 17
+        assert sample["rendering"]["scale"] == scale
+        assert sample["height"] == 19
+        with Image.open(root / sample["image"]) as image:
+            assert image.size == (sample["width"], 19)
+
+
+def test_train_heights_reject_a_train_without_any_height_at_scale_one_or_more(snapshot):
+    root, dataset = snapshot
+    config = options(
+        scaleModel="calibrated-v1", scaleSampling="train-heights", placement="raid-name"
+    )
+    config["targets"]["latin"] = 75
+    config["characters"]["latin"] = "ABCD"
+    output = root / "previews/too-small"
+    output.mkdir(parents=True)
+    request = {"directory": str(root), "outputDirectory": str(output), "mode": "preview"}
+    with pytest.raises(ValueError, match="배율 1 이상"):
+        prepare_supplement({**request, "options": config}, synthesizer=fake_synthesizer())
+
+
+def test_calibrated_model_rejects_a_fixed_scale_below_one(snapshot):
+    root, _ = snapshot
+    output = root / "previews/small-scale"
+    output.mkdir(parents=True)
+    config = options(scaleModel="calibrated-v1", scale=0.8)
+    with pytest.raises(ValueError, match="calibrated-v1"):
+        prepare_supplement(
+            {
+                "directory": str(root),
+                "outputDirectory": str(output),
+                "mode": "preview",
+                "options": config,
+            },
+            synthesizer=fake_synthesizer(),
+        )

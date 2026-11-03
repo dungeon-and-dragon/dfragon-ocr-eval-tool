@@ -137,6 +137,7 @@ test('library selection leads to local training, test review and explicit public
   await page.getByRole('button', { name: '모델·데이터 가져오기' }).click()
   await expect(page.getByText('train 30 · val 8 · test 1 · 사용 안 함 4')).toBeVisible()
   await page.getByLabel('부족한 문자군을 합성으로 보충').check()
+  await page.getByLabel('글자 배치').selectOption('center')
   await expect(page.getByLabel('크롭 너비 (px)')).toHaveValue('2048')
   await expect(page.getByLabel('크롭 높이 (px)')).toHaveValue('2048')
   await page.getByLabel('크롭 너비 (px)').fill('160')
