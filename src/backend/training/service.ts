@@ -3,7 +3,12 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join, relative, isAbsolute, basename, dirname } from 'node:path'
 import { createInterface } from 'node:readline'
-import type { LibraryModel, TrainingOptions, TrainingSnapshot } from '../../shared/training'
+import {
+  NICKNAME_DETACHED_GAPS,
+  type LibraryModel,
+  type TrainingOptions,
+  type TrainingSnapshot
+} from '../../shared/training'
 import { isRecord, isSample, isReport, readPath } from '../evaluation/validation'
 import type { SupplementPreview } from '../../shared/supplement'
 import { readSupplement, supplementInfo } from './supplement'
@@ -23,9 +28,12 @@ export function parseTrainingOptions(value: unknown): TrainingOptions {
           'pythonExecutable',
           'upstreamDirectory',
           'additionalCharacters',
-          'supplementId'
+          'supplementId',
+          'nicknameDetachedGap'
         ].includes(key)
     ) ||
+    (value.nicknameDetachedGap !== undefined &&
+      !NICKNAME_DETACHED_GAPS.some((gap) => gap === value.nicknameDetachedGap)) ||
     (value.additionalCharacters !== undefined &&
       (typeof value.additionalCharacters !== 'string' ||
         value.additionalCharacters.length > 20_000)) ||
@@ -48,6 +56,8 @@ export function parseTrainingOptions(value: unknown): TrainingOptions {
   }
   return {
     additionalCharacters: (value.additionalCharacters as string | undefined) ?? '',
+    nicknameDetachedGap:
+      NICKNAME_DETACHED_GAPS.find((gap) => gap === value.nicknameDetachedGap) ?? '4/17',
     ...(value.supplementId === undefined ? {} : { supplementId: value.supplementId as string }),
     pythonExecutable: readPath(value.pythonExecutable),
     upstreamDirectory: readPath(value.upstreamDirectory),
@@ -453,6 +463,7 @@ export class TrainingService {
           batchSize: options.batchSize,
           learningRate: options.learningRate,
           additionalCharacters: options.additionalCharacters,
+          nicknameDetachedGap: options.nicknameDetachedGap,
           ...(supplementSha256 === undefined ? {} : { supplementSha256 })
         }),
         { flag: 'wx' }
