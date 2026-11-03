@@ -20,6 +20,15 @@ export const CHARACTER_GROUP_LABELS = {
   other: '기타'
 } as const satisfies Record<CharacterGroup, string>
 export const SUPPLEMENT_CROP_SIZE = { min: 4, max: 2048 } as const
+export const SCALE_MODELS = ['calibrated-v1', 'affine-bilinear'] as const
+export const SCALE_SAMPLINGS = ['fixed', 'train-heights'] as const
+export const PLACEMENTS = ['raid-name', 'center'] as const
+// Runs saved before these options existed scaled and centered text this way.
+export const LEGACY_SUPPLEMENT_LAYOUT = {
+  scaleModel: 'affine-bilinear',
+  scaleSampling: 'fixed',
+  placement: 'center'
+} as const
 export interface CharacterDistribution {
   images: number
   nicknames: number
@@ -37,6 +46,9 @@ export interface SupplementOptions {
   seed: number
   profile: 'dotum' | 'nanum-neo'
   fonts: { gulim: string; batang: string; nanum: string; uttum: string }
+  scaleModel: (typeof SCALE_MODELS)[number]
+  scaleSampling: (typeof SCALE_SAMPLINGS)[number]
+  placement: (typeof PLACEMENTS)[number]
   scale: number
   width: number
   height: number

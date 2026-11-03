@@ -1,5 +1,8 @@
 import {
   CHARACTER_GROUPS,
+  PLACEMENTS,
+  SCALE_MODELS,
+  SCALE_SAMPLINGS,
   SUPPLEMENT_CROP_SIZE,
   characterGroup,
   type CharacterDistribution,
@@ -123,6 +126,20 @@ export function parseSupplementOptions(value: unknown): SupplementOptions {
   ) {
     throw new Error('글꼴 모드·배경 종류를 확인해 주세요.')
   }
+  const oneOf = <T extends string>(choices: readonly T[], input: unknown): T => {
+    const choice = choices.find((item) => item === input)
+    if (choice === undefined) {
+      throw new Error('확대 방식·배율 분포·글자 배치를 확인해 주세요.')
+    }
+
+    return choice
+  }
+  const scaleModel = oneOf(SCALE_MODELS, value.scaleModel)
+  const scaleSampling = oneOf(SCALE_SAMPLINGS, value.scaleSampling)
+  const scale = number(value.scale, Number.MIN_VALUE, 16)
+  if (scaleModel === 'calibrated-v1' && scaleSampling === 'fixed' && scale < 1) {
+    throw new Error('calibrated-v1은 배율 1 이상만 지원합니다.')
+  }
   const fonts = {} as SupplementOptions['fonts']
   for (const name of ['gulim', 'batang', 'nanum', 'uttum'] as const) {
     fonts[name] = value.fonts[name] === '' ? '' : readPath(value.fonts[name])
@@ -139,7 +156,10 @@ export function parseSupplementOptions(value: unknown): SupplementOptions {
     seed: number(value.seed, 0, 2 ** 32 - 1, true),
     profile: value.profile,
     fonts,
-    scale: number(value.scale, Number.MIN_VALUE, 16),
+    scaleModel,
+    scaleSampling,
+    placement: oneOf(PLACEMENTS, value.placement),
+    scale,
     width,
     height,
     padding: number(value.padding, 0, Math.floor((Math.min(width, height) - 1) / 2), true),

@@ -205,7 +205,11 @@ export function SupplementSettings({
           <summary>저장된 실행의 합성 구성</summary>
           <p>
             합성 {saved.plan.synthetic.images}장 · 허용 오차 {saved.options.tolerance}%p · seed{' '}
-            {saved.options.seed} · {saved.options.profile} · 배율 {saved.options.scale}
+            {saved.options.seed} · {saved.options.profile} · {saved.options.scaleModel} ·{' '}
+            {saved.options.scaleSampling === 'fixed'
+              ? `배율 ${saved.options.scale}`
+              : '실제 train 높이 배율'}{' '}
+            · {saved.options.placement === 'raid-name' ? '공대 이름 칸' : '가운데'}
           </p>
           <p>
             목표:{' '}

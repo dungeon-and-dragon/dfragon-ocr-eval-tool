@@ -31,7 +31,7 @@ def load_supplement(
         raise ValueError("합성 입력 목록이 변경되었습니다.")
     data = read_object(manifest)
     if (
-        data.get("schemaVersion") != 1
+        data.get("schemaVersion") != 2
         or data.get("mode") != "generate"
         or data.get("datasetSha256") != digest(root / "dataset.json")
         or data.get("dictionarySha256") != digest(root / "model/characters.txt")

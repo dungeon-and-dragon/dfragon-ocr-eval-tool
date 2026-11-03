@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile, realpath, stat } from 'node:fs/promises'
 import { join, isAbsolute, relative } from 'node:path'
 import {
+  LEGACY_SUPPLEMENT_LAYOUT,
   characterDistribution,
   type SupplementInfo,
   type SupplementOptions,
@@ -57,15 +58,18 @@ export async function readSupplement(
   const value: unknown = JSON.parse(bytes.toString('utf8'))
   if (
     !isRecord(value) ||
-    value.schemaVersion !== 1 ||
+    (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
+    !isRecord(value.options) ||
     !isSupplementPlan(value.plan) ||
     !Array.isArray(value.samples)
   ) {
     throw new Error('합성 결과 형식이 올바르지 않습니다.')
   }
+  const savedOptions =
+    value.schemaVersion === 1 ? { ...value.options, ...LEGACY_SUPPLEMENT_LAYOUT } : value.options
   const result = {
     plan: value.plan,
-    options: parseSupplementOptions(value.options),
+    options: parseSupplementOptions(savedOptions),
     examples: [] as { text: string; image: string }[],
     sha256: createHash('sha256').update(bytes).digest('hex')
   }
