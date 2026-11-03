@@ -86,7 +86,9 @@ GPU 학습 Python에도 문자군 검증용 `regex==2026.9.10`을 추가합니�
 - 기존 학습 경로에서 검증한 GPU 환경: PaddlePaddle GPU 3.2.2, NumPy 2.2.6, Pillow 11.3.0, PyYAML 6.0.3, OpenCV 4.11.0.86, Albumentations 2.0.8. 이번 버전은 `regex==2026.9.10`도 필요합니다. PaddleOCR의 나머지 학습 의존성도 설치된 기존 환경을 사용합니다. 일반 Python만으로 실행할 수 없습니다.
 - PaddleOCR 소스는 `b03f46425e8ff4442b268ce449e3eef758146cd4`로 고정하며 tracked 파일이 수정된 checkout은 거절합니다. 소스와 GPU 환경을 앱이 자동 설치하지 않습니다.
 - 공식 한국어 설정의 MultiHead·MultiLoss, Adam, seed 42, gradient clipping 5를 사용합니다. 기본값은 10 epochs, batch 8, learning rate 0.00001입니다.
-- 전처리는 공식 Eval 변환인 BGR·resize/padding `[3,48,320]`을 학습과 평가에 함께 사용합니다. 기본 버전에는 데이터 증강이 없습니다. 기존 평가 탭의 ldb-ocr custom 전처리와 다른 실행 경로입니다.
+- 전처리는 이미지를 읽은 직후 던삐삐 공대 닉네임 이진화를 적용하고, 그 뒤 공식 Eval 변환인 resize/padding `[3,48,320]`을 학습과 평가에 함께 사용합니다. 실제와 합성 train, val, test 모두 같습니다. 기본 버전에는 데이터 증강이 없습니다. 기존 평가 탭의 ldb-ocr custom 전처리와 다른 실행 경로입니다.
+- 이진화는 던삐삐 `packages/client-core/src/lib/nickname-pixels.ts`의 `binarizeRaidNicknamePixels`를 옮긴 `python/training_worker/raid_binarization.py`입니다. 가장 어두운 채널의 Otsu 반전 이진화, 선택 행 테두리 제거, 떨어진 픽셀 제거를 거쳐 흑백을 3채널로 복제합니다. 던삐삐가 만든 고정 벡터(`python/tests/fixtures/raid-binarization-vectors.json`)와 결과가 같은지 테스트합니다. 학습 입력은 제품이 모델에 넣는 입력과 같아야 하므로, 던삐삐가 이 함수를 바꾸면 이 파일과 고정 벡터도 함께 바꿔야 합니다.
+- 학습 설정의 **닉네임 이진화의 떨어진 픽셀 간격**은 이름과 떨어진 덩어리로 볼 빈 열 수를 crop 높이의 비율로 정합니다. 기본값 4/17은 현재 던삐삐 main과 같고, 6/17은 숫자 `1` 뒤 빈 열 때문에 이름 앞부분이 지워지지 않게 하는 던삐삐 #1152의 값입니다. 학습에 쓴 값은 `report.json`의 `reproducibility.nicknameDetachedGap`에 남습니다. 모델을 쓸 던삐삐 버전과 같은 값을 고르세요.
 - 사전의 순서와 가중치의 모든 parameter 이름·shape가 일치해야 합니다. 명시적인 문자 확장은 위 규칙으로만 허용합니다. 확장 후에도 사전에 없는 문자, 25자를 넘는 정답, 투명 PNG는 임의로 고치거나 건너뛰지 않고 거절합니다.
 
 ## 고정 입력과 결과
@@ -124,5 +126,7 @@ GPU 학습 Python에도 문자군 검증용 `regex==2026.9.10`을 추가합니�
 기존 사전 그대로의 학습 경로는 합성 PNG와 공식 가중치로 RTX 3080 Ti에서 1 epoch, train 3·val 1·test 1, optimizer 2 steps를 실행해 가중치 저장·재로딩·최종 test 보고서 생성을 확인했습니다. 이는 연결 검증이며 실데이터 정확도나 성능 개선의 증거가 아닙니다.
 
 이번 자동 보충·문자 확장은 로컬 TypeScript/Python 검증, 브라우저/Electron 화면·IPC 검사, 실제 dnf-ocr-synth의 미리보기→불투명 이미지 생성→학습 입력 검증까지 확인했습니다. 실제 합성기 연결 검사는 로컬 Noto 폰트를 사용한 기능 검사이며 게임 글꼴의 외형 검증을 대신하지 않습니다. **확장 출력층의 Windows GPU 학습·실제 게임 폰트·운영 서버 배포/등록은 이번 변경에서 실행하지 않았습니다.** Windows GPU에서 확장 가중치 저장·재로딩·새 문자 인식과 실제 배경 예시를 확인해야 합니다.
+
+공대 이름 칸 합성과 학습 입력 이진화는 RTX 3080 Ti에서 공식 가중치로 1 epoch 연결 검증을 했습니다. 실제 공대 이름 crop train 42장, `calibrated-v1`과 실제 train 높이, 배율별 배경으로 만든 합성 6장, val 2장, test 2장으로 optimizer 6 steps를 실행해 가중치 저장, 재로딩, test 보고서 생성까지 확인했습니다. 떨어진 픽셀 간격은 4/17로 실행했습니다. 이것도 연결 검증이며 정확도 개선의 증거가 아닙니다. 합성 미리보기는 게임 글꼴로 macOS에서 만들어 확인했고, Windows 앱 화면의 미리보기는 확인하지 않았습니다.
 
 CER·편집거리 코드는 ldb-ocr의 순수 계산 모듈에서 가져왔습니다. 원저작자는 blahaj94 및 LDB 기여자이며 원 출처는 [LDB PR #500](https://github.com/blahaj94/ldb/pull/500)입니다. 별도 라이선스를 임의로 부여하지 않습니다. 모델·PaddleOCR 소스·GPU 가상환경·실제 정답 데이터는 앱 배포 파일과 Git에 포함하지 않습니다.
