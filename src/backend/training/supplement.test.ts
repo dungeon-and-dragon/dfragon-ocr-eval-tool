@@ -34,6 +34,7 @@ const options = (): SupplementOptions => ({
   scaleModel: 'calibrated-v1',
   scaleSampling: 'train-heights',
   placement: 'raid-name',
+  exactUnitScaleShare: 0.5,
   scale: 0.5,
   width: 160,
   height: 32,
@@ -50,6 +51,9 @@ test('합성 설정은 확대 방식, 배율 분포, 글자 배치를 그대로 
     scaleSampling: 'train-heights',
     placement: 'raid-name'
   })
+  expect(() => parseSupplementOptions({ ...options(), exactUnitScaleShare: 1.5 })).toThrow(
+    '숫자 범위'
+  )
   for (const change of [
     { scaleModel: 'nearest' },
     { scaleSampling: 'random' },
@@ -76,6 +80,7 @@ test('옵션이 생기기 전 저장된 합성 결과는 bilinear 고정 배율 
   delete legacy.scaleModel
   delete legacy.scaleSampling
   delete legacy.placement
+  delete legacy.exactUnitScaleShare
   const plan = {
     real: characterDistribution(['가']),
     synthetic: characterDistribution(['AB']),

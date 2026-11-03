@@ -335,6 +335,7 @@ const supplementOptions = (): SupplementOptions => ({
   scaleModel: 'affine-bilinear',
   scaleSampling: 'fixed',
   placement: 'center',
+  exactUnitScaleShare: 0.5,
   scale: 1,
   color: [75, 209, 255],
   backgroundMode: 'solid',

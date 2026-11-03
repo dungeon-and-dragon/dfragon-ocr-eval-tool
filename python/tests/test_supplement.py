@@ -48,6 +48,7 @@ def options(**overrides):
         "scaleModel": "affine-bilinear",
         "scaleSampling": "fixed",
         "placement": "center",
+        "exactUnitScaleShare": 0.5,
         "scale": 1,
         "width": 40,
         "height": 20,
@@ -441,6 +442,55 @@ def test_calibrated_model_rejects_a_fixed_scale_below_one(snapshot):
                 "outputDirectory": str(output),
                 "mode": "preview",
                 "options": config,
+            },
+            synthesizer=fake_synthesizer(),
+        )
+
+
+@pytest.mark.parametrize("share", [0, 1])
+def test_17px_train_height_draws_exactly_scale_one_at_the_chosen_share(snapshot, share):
+    root, dataset = snapshot
+    with_train_heights(root, dataset, [17, 24, 30])
+    config = options(
+        scaleModel="calibrated-v1",
+        scaleSampling="train-heights",
+        placement="raid-name",
+        exactUnitScaleShare=share,
+        additionalCharacters="ABCDEFGH",
+    )
+    config["targets"]["latin"] = 95
+    config["characters"]["latin"] = "ABCDEFGH"
+    output = root / f"previews/unit-{share}"
+    output.mkdir(parents=True)
+    data = prepare_supplement(
+        {
+            "directory": str(root),
+            "outputDirectory": str(output),
+            "mode": "generate",
+            "options": config,
+        },
+        synthesizer=fake_synthesizer(),
+    )
+    scales = [sample["placement"]["scale"] for sample in data["samples"]]
+    assert len(scales) > 3
+    assert all(sample["height"] == 17 for sample in data["samples"])
+    if share == 1:
+        assert scales == [1.0] * len(scales)
+    else:
+        assert all(1 < scale < 18 / 17 for scale in scales)
+
+
+def test_unit_scale_share_outside_zero_to_one_is_rejected(snapshot):
+    root, _ = snapshot
+    output = root / "previews/bad-share"
+    output.mkdir(parents=True)
+    with pytest.raises(ValueError, match="배율 1을 고를 비율"):
+        prepare_supplement(
+            {
+                "directory": str(root),
+                "outputDirectory": str(output),
+                "mode": "preview",
+                "options": options(exactUnitScaleShare=1.5),
             },
             synthesizer=fake_synthesizer(),
         )
