@@ -43,13 +43,13 @@
 | 글자 배치 `placement`     | `raid-name`(기본)     | crop 크기와 글자 위치를 공대 이름 칸과 같게 둡니다.                                                                                         |
 |                           | `center`              | 이전처럼 입력한 크롭 크기의 가운데에 놓습니다.                                                                                              |
 
-배율 역산은 dnf-ocr-synth `geometry.name_crop_geometry(s)`에서 유도합니다. 이 함수는 확대 전 17px 이름 칸의 위아래 경계를 각각 프레임 픽셀로 반올림하므로, crop 높이는 공대 창 위치에 따라 `floor(17s)` 또는 `ceil(17s)`입니다. 따라서 높이 h는 `(h−1)/17 < s < (h+1)/17`에서만 나오고, 여기에 s ≥ 1을 더합니다. 높이 17px은 `[1, 18/17)`이고, 16px 이하는 배율 1 미만이라 분포에서 빼고 경고합니다. 뽑은 s마다 공대 창의 서브픽셀 위치를 그 높이가 나오는 범위에서 골라 crop 높이가 h와 같게 합니다.
+배율 역산은 dnf-ocr-synth `geometry.name_crop_geometry(s)`에서 유도합니다. 이 함수는 확대 전 17px 이름 칸의 위아래 경계를 각각 프레임 픽셀로 반올림하므로, crop 높이는 공대 창 위치에 따라 `floor(17s)` 또는 `ceil(17s)`입니다. 따라서 높이 h는 `(h−1)/17 < s < (h+1)/17`에서만 나오고, 여기에 s ≥ 1을 더합니다. 높이 17px은 `[1, 18/17)`입니다. UI 0%이거나 창 높이가 600px이면 배율이 정확히 1이고 `calibrated-v1`도 이때만 확대 전 글자를 그대로 쓰므로, 17px 높이는 `exactUnitScaleShare`(기본 0.5, 화면의 **17px 높이에서 배율 1 비율**) 확률로 정확히 s = 1을 쓰고 나머지는 `(1, 18/17)`에서 균등하게 뽑습니다. 16px 이하는 배율 1 미만이라 분포에서 빼고 경고합니다. 뽑은 s마다 공대 창의 서브픽셀 위치를 그 높이가 나오는 범위에서 골라 crop 높이가 h와 같게 합니다.
 
 `raid-name` 배치의 crop 크기는 `name_crop_geometry(s)`입니다. 글자는 `name_text_left`로 86px 칸 가운데에 놓고, 홀수 폭의 반 픽셀은 위아래 중 무작위로 고릅니다. 세로는 기준선을 칸 위에서 12px(확대 전), 가로는 `name_text_left`보다 1px 왼쪽에 둡니다. 두 값은 `calibrated-v1` 검증 캡처 33장에서 잰 중앙값(12.03px, −1.0px)이고, 배율 1 캡처에서는 정확히 12px, −1px입니다. 렌더 이미지를 놓는 위치는 정수 픽셀로 반올림합니다. 합성기 0.2.0은 서브픽셀 위상을 한 가지(원점 0)로만 그리므로, 학습 데이터의 서브픽셀 위상 다양성은 아직 없습니다.
 
 배율별 배경 폴더의 조각이 합성 crop보다 몇 px 작으면 bilinear로 crop 크기까지 늘립니다. 가까운 배율의 이름 칸에서 자른 조각을 그 차이만큼 맞추기 위해서입니다. `center` 배치는 이전처럼 크롭보다 작은 배경을 거절합니다.
 
-`supplement.json`(schema 2)에는 `options`의 세 옵션, `renderer.scaleModel`, 배율 분포(`scaleSampling`: `train-heights`면 사용한 높이와 뺀 높이의 개수, `fixed`면 배율)가 들어갑니다. 샘플마다 `rendering`(합성기 메타데이터), `placement`(배율, 칸 위치, 반 픽셀 방향), `background`(폴더, 파일, 늘리기 전 크기)를 기록합니다. 이 옵션 전에 저장한 schema 1 결과는 `affine-bilinear`, `fixed`, `center`로 읽습니다.
+`supplement.json`(schema 2)에는 `options`의 세 옵션과 `exactUnitScaleShare`, `renderer.scaleModel`, 배율 분포(`scaleSampling`: `train-heights`면 사용한 높이와 뺀 높이의 개수, `fixed`면 배율)가 들어갑니다. 샘플마다 `rendering`(합성기 메타데이터), `placement`(배율, 칸 위치, 반 픽셀 방향), `background`(폴더, 파일, 늘리기 전 크기)를 기록합니다. 이 옵션 전에 저장한 schema 1 결과는 `affine-bilinear`, `fixed`, `center`로 읽습니다.
 
 합성 PNG는 투명 RGBA 글자를 선택한 배경에 alpha composite한 **RGB 불투명 이미지**입니다. 기존 투명 이미지 거절 검사는 유지합니다. 현재 PaddleOCR DecodeImage는 3채널 색상으로 읽으므로 알파를 버리며, 자동 흰 배경이나 투명 영역 무시는 기대하지 않습니다. 별도 detection이나 전체 게임 화면 생성은 하지 않습니다.
 
