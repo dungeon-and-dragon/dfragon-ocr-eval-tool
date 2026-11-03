@@ -27,7 +27,8 @@ export const PLACEMENTS = ['raid-name', 'center'] as const
 export const LEGACY_SUPPLEMENT_LAYOUT = {
   scaleModel: 'affine-bilinear',
   scaleSampling: 'fixed',
-  placement: 'center'
+  placement: 'center',
+  exactUnitScaleShare: 0.5
 } as const
 export interface CharacterDistribution {
   images: number
@@ -49,6 +50,7 @@ export interface SupplementOptions {
   scaleModel: (typeof SCALE_MODELS)[number]
   scaleSampling: (typeof SCALE_SAMPLINGS)[number]
   placement: (typeof PLACEMENTS)[number]
+  exactUnitScaleShare: number
   scale: number
   width: number
   height: number

@@ -16,7 +16,13 @@ from eval_worker.dataset import read_object
 
 from .dictionary import extend_characters
 from .snapshot import digest, load_snapshot
-from .supplement_geometry import CellPlacement, place_cell, scale_range, text_offset
+from .supplement_geometry import (
+    RAID_NAME_HEIGHT,
+    CellPlacement,
+    place_cell,
+    scale_range,
+    text_offset,
+)
 from .supplement_plan import GROUPS, plan_supplement, validate_plan_options
 
 SYNTHESIZER_VERSION = "0.2.0"
@@ -97,6 +103,9 @@ def validate_render_options(options: dict) -> None:
         and scale < 1
     ):
         raise ValueError("calibrated-v1은 배율 1 이상만 지원합니다.")
+    share = options.get("exactUnitScaleShare")
+    if type(share) not in (int, float) or not 0 <= share <= 1:
+        raise ValueError("17px 높이에서 배율 1을 고를 비율은 0~1이어야 합니다.")
     for key in ("width", "height"):
         if type(options.get(key)) is not int or not 4 <= options[key] <= 2048:
             raise ValueError("크롭 너비·높이는 4~2048px이어야 합니다.")
@@ -275,6 +284,11 @@ def sample_scale(options: dict, heights: list[int], rng: random.Random) -> tuple
     if options["scaleSampling"] == "fixed":
         return options["scale"], None
     height = rng.choice(heights)
+    # UI 0% and 600px-tall windows draw at exactly s=1, where calibrated-v1 keeps the native
+    # raster, so a uniform draw over [1, 18/17) would almost never produce that case.
+    if height == RAID_NAME_HEIGHT and rng.random() < options["exactUnitScaleShare"]:
+        return 1.0, height
+
     low, high = scale_range(height)
 
     return rng.uniform(low, high), height

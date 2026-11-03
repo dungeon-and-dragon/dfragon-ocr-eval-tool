@@ -39,7 +39,8 @@ export function SupplementAppearance({
       <p className="field-help">
         공대 이름 칸 배치는 배율마다 던삐삐가 자르는 크기로 crop을 만들고 글자를 칸 가운데에
         놓습니다. 실제 train 높이에서 역산하면 배율 1 이상만 쓰며, calibrated-v1은 배율 1 미만을
-        지원하지 않습니다.
+        지원하지 않습니다. 17px 높이는 입력한 비율만큼 정확히 배율 1로 그리고 나머지는 1보다 조금 큰
+        배율에서 고릅니다.
       </p>
       <div className="supplement-fields">
         <label className="field">
@@ -114,6 +115,20 @@ export function SupplementAppearance({
             />
           </label>
         ))}
+        {options.scaleSampling === 'train-heights' && (
+          <label className="field">
+            17px 높이에서 배율 1 비율
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={options.exactUnitScaleShare}
+              disabled={disabled}
+              onChange={(event) => onChange({ exactUnitScaleShare: Number(event.target.value) })}
+            />
+          </label>
+        )}
         <label className="field">
           글자 색
           <input

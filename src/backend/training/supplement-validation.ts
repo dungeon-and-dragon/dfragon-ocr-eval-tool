@@ -159,6 +159,7 @@ export function parseSupplementOptions(value: unknown): SupplementOptions {
     scaleModel,
     scaleSampling,
     placement: oneOf(PLACEMENTS, value.placement),
+    exactUnitScaleShare: number(value.exactUnitScaleShare, 0, 1),
     scale,
     width,
     height,

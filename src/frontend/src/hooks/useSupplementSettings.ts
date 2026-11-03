@@ -50,6 +50,7 @@ export function useSupplementSettings({
     scaleModel: 'calibrated-v1',
     scaleSampling: 'train-heights',
     placement: 'raid-name',
+    exactUnitScaleShare: 0.5,
     scale: 1,
     width: 160,
     height: 32,
