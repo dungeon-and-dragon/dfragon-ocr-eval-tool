@@ -122,8 +122,16 @@ test('invalid training settings fail before a process is launched', () => {
     batchSize: 2,
     learningRate: 0.00001
   }
-  expect(parseTrainingOptions(options)).toEqual({ ...options, additionalCharacters: '' })
+  expect(parseTrainingOptions(options)).toEqual({
+    ...options,
+    additionalCharacters: '',
+    nicknameDetachedGap: '4/17'
+  })
+  expect(parseTrainingOptions({ ...options, nicknameDetachedGap: '6/17' })).toMatchObject({
+    nicknameDetachedGap: '6/17'
+  })
   for (const patch of [
+    { nicknameDetachedGap: '5/17' },
     { epochs: 0 },
     { batchSize: 129 },
     { learningRate: NaN },
