@@ -12,16 +12,9 @@
   <a href="https://github.com/blahaj94/dfragon-ocr-eval-tool/releases/latest"><strong>Windows 다운로드</strong></a> · 설치 파일 또는 ZIP
 </p>
 
-<p align="center">
-  <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="docs/comparison.md">결과 비교</a> · <a href="docs/charset.md">문자 검사</a> · <a href="docs/model-input.md">모델 입력 확인</a>
-  · <a href="docs/training-domain-story.md">자료실 모델 학습</a>
-</p>
-
 ## 01. 모델과 데이터 선택
 
-**학습** 탭에서 미니PC의 자료실에 로그인하고 모델·train/val/test 데이터를 가져와 Windows GPU로 학습한 뒤 평가할 수 있습니다. 실제 train을 유지하면서 목표 문자 분포의 부족분을 합성으로 보충하고, 선택한 새 문자를 추가한 모델도 학습할 수 있습니다. 새 모델은 **미니PC에 올리기**로 등록합니다. [서버·로컬 합성 환경 준비와 사용 순서](docs/training-domain-story.md)를 확인하세요.
-
-Cropper에서 정답을 작성했다면 [앱에서 정답 목록 만들기](docs/transfer.md).
+**학습** 탭에서 미니PC의 자료실에 로그인하고 모델·train/val/test 데이터를 가져와 Windows GPU로 학습한 뒤 평가할 수 있습니다. 실제 train을 유지하면서 목표 문자 분포의 부족분을 합성으로 보충하고, 선택한 새 문자를 추가한 모델도 학습할 수 있습니다. 새 모델은 **미니PC에 올리기**로 등록합니다.
 
 <p align="center">
   <img src="docs/screenshots/setup.png" width="352" alt="실제 앱에서 Python, 학습 결과, 체크포인트, Cropper 캡처와 정답 파일을 선택한 화면" />
